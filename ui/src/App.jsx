@@ -227,6 +227,18 @@ function formatActualTime(dateText, startTime, seconds) {
   });
 }
 
+function getVideoDisplayTitle(video, allVideos) {
+  if (!video) return "";
+  const sameDateVideos = (allVideos || []).filter((v) => v.date === video.date);
+  if (sameDateVideos.length > 1) {
+    const sorted = [...sameDateVideos].sort((a, b) => a.id - b.id);
+    const index = sorted.findIndex((v) => v.id === video.id);
+    const num = index >= 0 ? index + 1 : 1;
+    return `${video.date} ${video.camera} 녹화본 #${num}`;
+  }
+  return `${video.date} ${video.camera} 녹화본`;
+}
+
 function formatMonthLabel(date) {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 }
@@ -565,11 +577,11 @@ function AnalyticsView({ filteredVideos, filterDays, setFilterDays }) {
 
       {/* 기간 필터 */}
       <div className="filter-pills" style={{ marginBottom: "24px" }}>
+        <button className={filterDays === 9999 ? "active" : ""} onClick={() => setFilterDays(9999)}>전체</button>
         <button className={filterDays === 7 ? "active" : ""} onClick={() => setFilterDays(7)}>1주일</button>
         <button className={filterDays === 14 ? "active" : ""} onClick={() => setFilterDays(14)}>2주일</button>
         <button className={filterDays === 30 ? "active" : ""} onClick={() => setFilterDays(30)}>1개월</button>
         <button className={filterDays === 90 ? "active" : ""} onClick={() => setFilterDays(90)}>3개월</button>
-        <button className={filterDays === 9999 ? "active" : ""} onClick={() => setFilterDays(9999)}>전체</button>
       </div>
 
       {stats.totalEvents === 0 ? (
@@ -635,7 +647,7 @@ function Dashboard({ onLogout, view }) {
 
   // 상태 관리
   const [videos, setVideos] = useState([]); // API에서 로드한 영상 목록
-  const [filterDays, setFilterDays] = useState(7); // 기본 1주일
+  const [filterDays, setFilterDays] = useState(9999); // 기본 전체
   const [searchQuery, setSearchQuery] = useState(""); // 상단 검색어
 
   const [selectedVideo, setSelectedVideo] = useState(null); // null이면 홈(그리드) 화면, 값이 있으면 영상 재생 화면
@@ -643,6 +655,7 @@ function Dashboard({ onLogout, view }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0); // 실제 영상 재생 위치(초)
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // 달력에서 선택한 날짜
+  const [datePickerVideos, setDatePickerVideos] = useState(null); // 동일 날짜 영상 복수 존재 시 선택 모달 데이터
   const [playbackSpeed, setPlaybackSpeed] = useState("1");
   const [volume, setVolume] = useState(70);
   const [quality, setQuality] = useState("auto");
@@ -868,8 +881,10 @@ function Dashboard({ onLogout, view }) {
     const dateText = formatDate(date);
     setSelectedCalendarDate(dateText); // 영상 유무와 무관하게 날짜 선택 표시
     const dayVideos = videosByDate[dateText] ?? [];
-    if (dayVideos.length > 0) {
+    if (dayVideos.length === 1) {
       handleWatchVideo(dayVideos[0]);
+    } else if (dayVideos.length > 1) {
+      setDatePickerVideos({ dateText, videos: dayVideos });
     }
   };
 
@@ -1384,9 +1399,6 @@ function Dashboard({ onLogout, view }) {
             <div className="hero-card-left">
               <div className="hero-badge">AI Monitoring Engine</div>
               <h2>주차 사고 이벤트를 실시간으로 확인하세요</h2>
-              <p>
-                CCTV 녹화 영상에서 차선 및 사고 차량을 지정하여 접촉사고 의심 구간을 인공지능 알고리즘으로 자동 분석합니다.
-              </p>
               <div className="hero-actions">
                 {deleteMode ? (
                   <>
@@ -1428,11 +1440,11 @@ function Dashboard({ onLogout, view }) {
           {/* 기간 필터 */}
           <div className="home-toolbar">
             <div className="filter-pills">
+              <button className={filterDays === 9999 ? "active" : ""} onClick={() => setFilterDays(9999)}>전체</button>
               <button className={filterDays === 7 ? "active" : ""} onClick={() => setFilterDays(7)}>1주일</button>
               <button className={filterDays === 14 ? "active" : ""} onClick={() => setFilterDays(14)}>2주일</button>
               <button className={filterDays === 30 ? "active" : ""} onClick={() => setFilterDays(30)}>1개월</button>
               <button className={filterDays === 90 ? "active" : ""} onClick={() => setFilterDays(90)}>3개월</button>
-              <button className={filterDays === 9999 ? "active" : ""} onClick={() => setFilterDays(9999)}>전체</button>
             </div>
           </div>
 
@@ -1469,7 +1481,7 @@ function Dashboard({ onLogout, view }) {
                     )}
                   </div>
                   <div className="video-info">
-                    <h3>{video.date} {video.camera} 녹화본</h3>
+                    <h3>{getVideoDisplayTitle(video, videos)}</h3>
                     <p>영상 길이: {formatTime(video.duration)}</p>
                   </div>
                 </div>
@@ -1565,7 +1577,7 @@ function Dashboard({ onLogout, view }) {
 
             <div className="watch-header-metadata">
               <span className="metadata-item"><strong>카메라:</strong> {selectedVideo.camera}</span>
-              <span className="metadata-item"><strong>녹화 일시:</strong> {selectedVideo.date} {selectedVideo.startTime}</span>
+              <span className="metadata-item"><strong>녹화 영상:</strong> {getVideoDisplayTitle(selectedVideo, videos)} ({selectedVideo.startTime})</span>
               <span className="metadata-item"><strong>총 이벤트:</strong> {selectedVideo.events.length}건 감지됨</span>
             </div>
             </div>
@@ -1693,9 +1705,14 @@ function Dashboard({ onLogout, view }) {
                               key={dateText}
                               className={`calendar-day ${hasVideo ? `has-video ${intensityClass}` : ""} ${isSelectedDate ? "selected" : ""}`}
                               onClick={() => handleCalendarDateClick(date)}
-                              title={hasVideo ? `총 ${totalEvents}건의 이벤트` : "영상 없음"}
+                              title={hasVideo ? `총 ${videos.length}개 영상 / ${totalEvents}건의 이벤트` : "영상 없음"}
                             >
                               <span className="calendar-date-number">{date.getDate()}</span>
+                              {videos.length > 1 && (
+                                <span className="calendar-multi-count-badge" title={`영상 ${videos.length}개`}>
+                                  {videos.length}개
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -2330,68 +2347,298 @@ function Dashboard({ onLogout, view }) {
           onError={(msg) => showToast(msg, "error")}
         />
       )}
+      {/* 동일 날짜 여러 영상 선택 모달 */}
+      {datePickerVideos && (
+        <DateVideosModal
+          dateText={datePickerVideos.dateText}
+          videos={datePickerVideos.videos}
+          onClose={() => setDatePickerVideos(null)}
+          onSelectVideo={(video) => {
+            setDatePickerVideos(null);
+            handleWatchVideo(video);
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function UploadModal({ onClose, onUploaded, onError }) {
-  const [file, setFile] = useState(null);
-  const [recordingDate, setRecordingDate] = useState("");
+  const [filesList, setFilesList] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, currentName: "" });
+  const [dragActive, setDragActive] = useState(false);
+
+  const fileInputRef = useRef(null);
+
+  const addFiles = (newFiles) => {
+    if (!newFiles || newFiles.length === 0) return;
+    const todayStr = formatDate(new Date());
+    const items = Array.from(newFiles).map((file, idx) => ({
+      id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+      file,
+      recordingDate: todayStr,
+    }));
+    setFilesList((prev) => [...prev, ...items]);
+  };
+
+  const handleFileChange = (e) => {
+    addFiles(e.target.files);
+    if (e.target) e.target.value = "";
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      addFiles(e.dataTransfer.files);
+    }
+  };
+
+  const removeFile = (id) => {
+    setFilesList((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateFileDate = (id, dateStr) => {
+    setFilesList((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, recordingDate: dateStr } : item))
+    );
+  };
+
+  const updateAllDates = (dateStr) => {
+    setFilesList((prev) => prev.map((item) => ({ ...item, recordingDate: dateStr })));
+  };
 
   const handleUpload = async () => {
-    if (!file) {
+    if (filesList.length === 0) {
       onError("업로드할 영상 파일을 선택해 주세요.");
       return;
     }
     setUploading(true);
-    try {
-      await api.uploadVideo(file, recordingDate || null);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < filesList.length; i += 1) {
+      const item = filesList[i];
+      setUploadProgress({
+        current: i + 1,
+        total: filesList.length,
+        currentName: item.file.name,
+      });
+      try {
+        await api.uploadVideo(item.file, item.recordingDate || null);
+        successCount += 1;
+      } catch (e) {
+        failCount += 1;
+        console.error(`Failed to upload ${item.file.name}:`, e);
+      }
+    }
+
+    setUploading(false);
+    if (successCount > 0) {
+      if (failCount > 0) {
+        onError(`${successCount}개 업로드 완료 (${failCount}개 실패)`);
+      }
       onUploaded();
-    } catch (e) {
-      onError(`업로드 실패: ${e.message}`);
-      setUploading(false);
+    } else {
+      onError("모든 영상 파일 업로드에 실패했습니다.");
     }
   };
 
   return (
     <div className="settings-modal-overlay" onClick={onClose}>
-      <div className="upload-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>영상 업로드</h2>
-        <p className="tab-description">분석할 CCTV 녹화 영상을 업로드합니다.</p>
-
-        <div className="settings-form-group">
-          <label>영상 파일</label>
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
+      <div className="upload-modal multi-upload-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="upload-modal-header">
+          <div>
+            <h2>영상 다중 업로드</h2>
+            <p className="tab-description">분석할 CCTV 녹화 영상을 업로드합니다. 여러 파일을 한번에 선택하고 개별 날짜를 지정할 수 있습니다.</p>
+          </div>
+          <button className="clip-modal-close" onClick={onClose} disabled={uploading}>✕</button>
         </div>
 
-        <div className="settings-form-group">
-          <label>녹화 일자 (달력에서 선택)</label>
-          <input
-            type="date"
-            value={recordingDate}
-            max={formatDate(new Date())}
-            onChange={(e) => setRecordingDate(e.target.value)}
-          />
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+
+        {filesList.length === 0 ? (
+          <div
+            className={`upload-dropzone ${dragActive ? "drag-active" : ""}`}
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className="dropzone-icon">📹</div>
+            <p className="dropzone-title">클릭하여 영상 파일 선택 (복수 선택 가능)</p>
+            <p className="dropzone-sub">또는 여기에 영상 파일들을 드래그 앤 드롭하세요</p>
+          </div>
+        ) : (
+          <div className="upload-file-list-container">
+            <div className="upload-file-list-toolbar">
+              <span className="file-count-badge">선택된 영상: <strong>{filesList.length}개</strong></span>
+              <div className="file-toolbar-actions">
+                <button
+                  type="button"
+                  className="add-more-files-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  + 파일 추가
+                </button>
+                <button
+                  type="button"
+                  className="clear-all-files-btn"
+                  onClick={() => setFilesList([])}
+                  disabled={uploading}
+                >
+                  전체 삭제
+                </button>
+              </div>
+            </div>
+
+            <div className="bulk-date-bar">
+              <span>일괄 녹화일자 지정:</span>
+              <input
+                type="date"
+                max={formatDate(new Date())}
+                onChange={(e) => {
+                  if (e.target.value) updateAllDates(e.target.value);
+                }}
+                disabled={uploading}
+              />
+              <span className="bulk-date-tip">(각 파일별 개별 일자 설정 가능)</span>
+            </div>
+
+            <div className="upload-file-scroll-list">
+              {filesList.map((item) => (
+                <div key={item.id} className="upload-file-item">
+                  <div className="file-item-info">
+                    <span className="file-item-icon">🎥</span>
+                    <div className="file-item-name-group">
+                      <span className="file-item-name" title={item.file.name}>{item.file.name}</span>
+                      <span className="file-item-size">{(item.file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                    </div>
+                  </div>
+
+                  <div className="file-item-date-group">
+                    <label>녹화일자:</label>
+                    <input
+                      type="date"
+                      value={item.recordingDate}
+                      max={formatDate(new Date())}
+                      onChange={(e) => updateFileDate(item.id, e.target.value)}
+                      disabled={uploading}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="file-item-remove-btn"
+                    onClick={() => removeFile(item.id)}
+                    disabled={uploading}
+                    title="파일 삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {uploading && (
+          <div className="upload-progress-box">
+            <div className="upload-progress-info">
+              <span>업로드 진행 중 ({uploadProgress.current}/{uploadProgress.total})</span>
+              <span className="upload-progress-filename">{uploadProgress.currentName}</span>
+            </div>
+            <div className="analysis-progress-track">
+              <div
+                className="analysis-progress-fill"
+                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="upload-modal-actions">
           <button
             className="upload-submit-btn"
             onClick={handleUpload}
-            disabled={uploading}
+            disabled={uploading || filesList.length === 0}
           >
-            {uploading ? "업로드 중..." : "업로드"}
+            {uploading
+              ? `업로드 중 (${uploadProgress.current}/${uploadProgress.total})...`
+              : `${filesList.length > 0 ? `${filesList.length}개 ` : ""}영상 업로드`}
           </button>
           <button className="upload-cancel-btn" onClick={onClose} disabled={uploading}>
             취소
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
 
+function DateVideosModal({ dateText, videos, onClose, onSelectVideo }) {
+  if (!videos || videos.length === 0) return null;
+
+  return (
+    <div className="settings-modal-overlay" onClick={onClose}>
+      <div className="date-videos-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="date-videos-header">
+          <div>
+            <h2>📅 {dateText} 녹화 영상 목록 ({videos.length}개)</h2>
+            <p className="tab-description">
+              해당 날짜에 총 {videos.length}개의 녹화 영상이 존재합니다. 시청할 영상을 선택해 주세요.
+            </p>
+          </div>
+          <button className="clip-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="date-videos-scroll-list">
+          {videos.map((v) => (
+            <div key={v.id} className="date-video-card-item" onClick={() => onSelectVideo(v)}>
+              <div className="date-video-thumb-wrapper">
+                <img
+                  className="video-thumbnail-img"
+                  src={api.thumbnailUrl(v.id)}
+                  alt={`${v.date} 썸네일`}
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+                <span className="event-count-badge">이벤트 {v.events.length}건</span>
+              </div>
+              <div className="date-video-card-info">
+                <h3>{getVideoDisplayTitle(v, videos)}</h3>
+                <div className="date-video-card-meta">
+                  <span>⏱ 영상 길이: {formatTime(v.duration)}</span>
+                  <span>📍 위치: {v.camera}</span>
+                  <span>⏱ 시작: {v.startTime}</span>
+                </div>
+              </div>
+              <button className="date-video-play-btn">
+                ▶ 시청하기
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
