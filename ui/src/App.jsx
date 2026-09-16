@@ -7,7 +7,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { api, saveAuth, clearAuth, getToken } from "./api";
+import { api, saveAuth, clearAuth, getToken, getStoredUser } from "./api";
 import "./App.css";
 
 function AppLoadingScreen() {
@@ -643,7 +643,7 @@ function AnalyticsView({ filteredVideos, filterDays, setFilterDays }) {
 }
 
 // 대시보드 컴포넌트
-function Dashboard({ onLogout, view }) {
+function Dashboard({ onLogout, view, currentUser, onUpdateUser }) {
   const navigate = useNavigate();
   const { videoId } = useParams();
   const currentView = view === "analytics" ? "analytics" : "dashboard";
@@ -744,11 +744,23 @@ function Dashboard({ onLogout, view }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState("account"); // "account", "security"
 
-  // 설정 정보
-  const adminName = "admin";
-  const [adminRealName, setAdminRealName] = useState("홍길동");
-  const [adminPhone, setAdminPhone] = useState("010-1234-5678");
-  const [adminEmail, setAdminEmail] = useState("admin@cbnu-capstone.com");
+  // 설정 정보 (현재 로그인 사용자 정보와 동기화)
+  const currentUsername = currentUser?.username || "user";
+  const [adminRealName, setAdminRealName] = useState(currentUser?.name || "");
+  const [adminPhone, setAdminPhone] = useState(currentUser?.phone || "");
+  const [adminEmail, setAdminEmail] = useState(currentUser?.email || "");
+
+  useEffect(() => {
+    if (currentUser) {
+      setAdminRealName(currentUser.name || "");
+      setAdminPhone(currentUser.phone || "");
+      setAdminEmail(currentUser.email || "");
+    }
+  }, [currentUser]);
+
+  const displayName = currentUser?.name || currentUser?.username || "사용자";
+  const avatarInitial = (displayName[0] || currentUsername[0] || "U").toUpperCase();
+  const roleLabel = currentUser?.role === "ADMIN" ? "시스템 관리자" : "일반 사용자";
 
   // 비밀번호 변경 필드
   const [currentPassword, setCurrentPassword] = useState("");
@@ -1401,7 +1413,7 @@ function Dashboard({ onLogout, view }) {
               aria-label="프로필 메뉴 열기"
             >
               <div className="profile-avatar">
-                <span>A</span>
+                <span>{avatarInitial}</span>
               </div>
             </button>
 
@@ -1409,12 +1421,12 @@ function Dashboard({ onLogout, view }) {
               <>
                 <div className="dropdown-overlay" onClick={() => setIsProfileOpen(false)} />
                 <div className="profile-dropdown-menu">
-                  {/* 관리자 정보 요약 Header */}
+                  {/* 관리자/사용자 정보 요약 Header */}
                   <div className="dropdown-header">
-                    <div className="header-avatar">A</div>
+                    <div className="header-avatar">{avatarInitial}</div>
                     <div className="header-info">
-                      <span className="info-name">{adminRealName} ({adminName})</span>
-                      <span className="info-role">시스템 관리자</span>
+                      <span className="info-name">{displayName} ({currentUsername})</span>
+                      <span className="info-role">{roleLabel}</span>
                     </div>
                   </div>
 
@@ -1430,7 +1442,7 @@ function Dashboard({ onLogout, view }) {
                       setActiveSettingsTab("account");
                     }}
                   >
-                    👤 관리자 정보 수정
+                    👤 {currentUser?.role === "ADMIN" ? "관리자 정보 수정" : "내 정보 수정"}
                   </button>
                   <button
                     className="dropdown-item"
@@ -2352,12 +2364,16 @@ function Dashboard({ onLogout, view }) {
             <div className="settings-modal-content">
               {activeSettingsTab === "account" && (
                 <div className="settings-tab-content">
-                  <h2>내 정보 설정</h2>
-                  <p className="tab-description">관리자 기본 정보를 확인 및 수정할 수 있습니다.</p>
+                  <h2>{currentUser?.role === "ADMIN" ? "관리자 정보 설정" : "내 정보 설정"}</h2>
+                  <p className="tab-description">
+                    {currentUser?.role === "ADMIN"
+                      ? "관리자 기본 정보를 확인 및 수정할 수 있습니다."
+                      : "회원 기본 정보를 확인 및 수정할 수 있습니다."}
+                  </p>
 
                   <div className="settings-form-group">
                     <label>계정 아이디</label>
-                    <input type="text" value={adminName} disabled className="disabled-input" />
+                    <input type="text" value={currentUsername} disabled className="disabled-input" />
                   </div>
 
                   <div className="settings-form-group">
@@ -2376,7 +2392,7 @@ function Dashboard({ onLogout, view }) {
                       type="text"
                       value={adminPhone}
                       onChange={(e) => setAdminPhone(e.target.value)}
-                      placeholder="연락처 입력"
+                      placeholder="연락처 입력 (예: 010-1234-5678)"
                     />
                   </div>
 
@@ -2392,12 +2408,23 @@ function Dashboard({ onLogout, view }) {
 
                   <button
                     className="settings-save-btn"
-                    onClick={() => {
-                      if (!adminRealName || !adminPhone || !adminEmail) {
-                        alert("필수 입력 항목이 누락되었습니다.");
+                    onClick={async () => {
+                      if (!adminRealName.trim()) {
+                        alert("이름을 입력해 주세요.");
                         return;
                       }
-                      alert("관리자 정보가 성공적으로 저장되었습니다.");
+                      try {
+                        const updated = await api.updateMe({
+                          name: adminRealName.trim(),
+                          phone: adminPhone.trim(),
+                          email: adminEmail.trim(),
+                        });
+                        if (onUpdateUser) onUpdateUser(updated);
+                        showToast("사용자 정보가 성공적으로 저장되었습니다.", "success");
+                        alert("사용자 정보가 성공적으로 저장되었습니다.");
+                      } catch (err) {
+                        alert(`정보 수정 실패: ${err.message}`);
+                      }
                     }}
                   >
                     수정 내용 저장
@@ -2442,7 +2469,7 @@ function Dashboard({ onLogout, view }) {
 
                   <button
                     className="settings-save-btn"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!currentPassword || !newPassword || !confirmPassword) {
                         alert("모든 필드를 입력해 주세요.");
                         return;
@@ -2451,10 +2478,24 @@ function Dashboard({ onLogout, view }) {
                         alert("새 비밀번호가 서로 일치하지 않습니다.");
                         return;
                       }
-                      alert("비밀번호가 성공적으로 변경되었습니다.");
-                      setCurrentPassword("");
-                      setNewPassword("");
-                      setConfirmPassword("");
+                      if (newPassword.length < 4) {
+                        alert("새 비밀번호는 최소 4자 이상이어야 합니다.");
+                        return;
+                      }
+                      try {
+                        await api.changePassword({
+                          current_password: currentPassword,
+                          new_password: newPassword,
+                        });
+                        showToast("비밀번호가 성공적으로 변경되었습니다.", "success");
+                        alert("비밀번호가 성공적으로 변경되었습니다.");
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                        setIsSettingsOpen(false);
+                      } catch (err) {
+                        alert(`비밀번호 변경 실패: ${err.message}`);
+                      }
                     }}
                   >
                     비밀번호 변경 완료
@@ -2816,18 +2857,31 @@ function RequireAuth({ children }) {
 }
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [user, setUser] = useState(() => !!getToken());
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
+    if (getToken()) {
+      api.getMe().then((u) => {
+        setCurrentUser(u);
+        saveAuth(getToken(), u);
+      }).catch(() => {});
+    }
     const timer = setTimeout(() => {
       setIsInitializing(false);
     }, 1000);
     return () => clearTimeout(timer);
   }, []);
 
+  const handleUpdateUser = (updatedUser) => {
+    setCurrentUser(updatedUser);
+    saveAuth(getToken(), updatedUser);
+  };
+
   const handleLogout = () => {
     clearAuth();
+    setCurrentUser(null);
     setUser(false);
   };
 
@@ -2839,13 +2893,28 @@ export default function App() {
 
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage onLogin={() => setUser(true)} />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              onLogin={(loggedUser) => {
+                setCurrentUser(loggedUser);
+                setUser(true);
+              }}
+            />
+          }
+        />
         <Route path="/signup" element={<SignupPage />} />
         <Route
           path="/videos"
           element={
             <RequireAuth>
-              <Dashboard onLogout={handleLogout} view="list" />
+              <Dashboard
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                onLogout={handleLogout}
+                view="list"
+              />
             </RequireAuth>
           }
         />
@@ -2853,7 +2922,12 @@ export default function App() {
           path="/videos/:videoId"
           element={
             <RequireAuth>
-              <Dashboard onLogout={handleLogout} view="watch" />
+              <Dashboard
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                onLogout={handleLogout}
+                view="watch"
+              />
             </RequireAuth>
           }
         />
@@ -2861,7 +2935,12 @@ export default function App() {
           path="/analytics"
           element={
             <RequireAuth>
-              <Dashboard onLogout={handleLogout} view="analytics" />
+              <Dashboard
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                onLogout={handleLogout}
+                view="analytics"
+              />
             </RequireAuth>
           }
         />
