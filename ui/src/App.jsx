@@ -430,7 +430,10 @@ function AnalyticsView({ filteredVideos, filterDays, setFilterDays }) {
     const circ = 2 * Math.PI * r;
     let currentAngle = -90;
 
-    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+    const isDark = typeof document !== "undefined" && document.body.classList.contains("dark-mode");
+    const colors = isDark
+      ? ["#00e699", "#06b6d4", "#f59e0b", "#ef4444", "#a855f7"]
+      : ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
     const segments = [];
     for (let idx = 0; idx < stats.eventTypeList.length; idx++) {
@@ -1457,50 +1460,7 @@ function Dashboard({ onLogout, view }) {
         />
       ) : !selectedVideo ? (
         <main className="home-view">
-          {/* 상단 히어로 쇼케이스 배너 카드 */}
-          <div className="home-hero-card">
-            <div className="hero-card-left">
-              <div className="hero-badge">AI Monitoring Engine</div>
-              <h2>주차 사고 이벤트를 실시간으로 확인하세요</h2>
-              <div className="hero-actions">
-                {deleteMode ? (
-                  <>
-                    <button
-                      className="delete-select-all-btn"
-                      onClick={() => {
-                        if (selectedForDelete.length === filteredVideos.length && filteredVideos.length > 0) {
-                          setSelectedForDelete([]);
-                        } else {
-                          setSelectedForDelete(filteredVideos.map((v) => v.id));
-                        }
-                      }}
-                    >
-                      {selectedForDelete.length === filteredVideos.length && filteredVideos.length > 0
-                        ? "☑ 전체 해제"
-                        : "☐ 전체 선택"}
-                    </button>
-                    <button className="delete-cancel-btn" onClick={exitDeleteMode}>
-                      취소
-                    </button>
-                    <button className="delete-confirm-btn" onClick={handleDeleteSelected}>
-                      🗑 선택 삭제 ({selectedForDelete.length})
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button className="hero-primary-btn" onClick={() => setShowUpload(true)}>
-                      ⬆ 영상 업로드
-                    </button>
-                    <button className="hero-delete-btn" onClick={() => setDeleteMode(true)}>
-                      🗑 영상 삭제
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 기간 필터 */}
+          {/* 기간 필터 및 영상 관리 툴바 */}
           <div className="home-toolbar">
             <div className="filter-pills">
               <button className={filterDays === 9999 ? "active" : ""} onClick={() => setFilterDays(9999)}>전체</button>
@@ -1508,6 +1468,42 @@ function Dashboard({ onLogout, view }) {
               <button className={filterDays === 14 ? "active" : ""} onClick={() => setFilterDays(14)}>2주일</button>
               <button className={filterDays === 30 ? "active" : ""} onClick={() => setFilterDays(30)}>1개월</button>
               <button className={filterDays === 90 ? "active" : ""} onClick={() => setFilterDays(90)}>3개월</button>
+            </div>
+
+            <div className="home-toolbar-actions">
+              {deleteMode ? (
+                <>
+                  <button
+                    className="delete-select-all-btn"
+                    onClick={() => {
+                      if (selectedForDelete.length === filteredVideos.length && filteredVideos.length > 0) {
+                        setSelectedForDelete([]);
+                      } else {
+                        setSelectedForDelete(filteredVideos.map((v) => v.id));
+                      }
+                    }}
+                  >
+                    {selectedForDelete.length === filteredVideos.length && filteredVideos.length > 0
+                      ? "☑ 전체 해제"
+                      : "☐ 전체 선택"}
+                  </button>
+                  <button className="delete-cancel-btn" onClick={exitDeleteMode}>
+                    취소
+                  </button>
+                  <button className="delete-confirm-btn" onClick={handleDeleteSelected}>
+                    🗑 선택 삭제 ({selectedForDelete.length})
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="toolbar-upload-btn" onClick={() => setShowUpload(true)}>
+                    ⬆ 영상 업로드
+                  </button>
+                  <button className="toolbar-delete-btn" onClick={() => setDeleteMode(true)}>
+                    🗑 영상 삭제
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1738,7 +1734,7 @@ function Dashboard({ onLogout, view }) {
 
 
                   {/* 달력을 사이드바 이벤트 목록 하단으로 삽입 */}
-                  <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
+                  <div className="sidebar-calendar-container">
                     <section className="event-calendar-panel" style={{ background: "transparent", padding: 0 }}>
                       <div className="calendar-header">
                         <button className="calendar-nav-btn" onClick={() => moveCalendarMonth(-1)} aria-label="이전 달">
