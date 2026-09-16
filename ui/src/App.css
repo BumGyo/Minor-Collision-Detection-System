@@ -799,6 +799,69 @@ button {
   }
 }
 
+/* 메인화면 페이지네이션 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 36px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.pagination-btn.pagination-num.active {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.25);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #64748b;
+  margin-left: 12px;
+  font-weight: 500;
+}
+
 .video-card {
   cursor: pointer;
   border-radius: 12px;
@@ -2505,6 +2568,38 @@ body.dark-mode .empty-state {
   background: #0d1520;
   border-color: #1a2a3c;
   color: #38bdf8;
+}
+
+/* 다크모드 페이지네이션 (AGROVEILLANCE 테마) */
+body.dark-mode .pagination-btn {
+  background: #0d1520;
+  border: 1px solid #1a2a3c;
+  color: #94a3b8;
+}
+
+body.dark-mode .pagination-btn:hover:not(:disabled) {
+  background: #121d2b;
+  border-color: #00e699;
+  color: #00e699;
+  box-shadow: 0 0 10px rgba(0, 230, 153, 0.2);
+}
+
+body.dark-mode .pagination-btn.pagination-num.active {
+  background: #00e699;
+  border-color: #00e699;
+  color: #080d14;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(0, 230, 153, 0.45);
+}
+
+body.dark-mode .pagination-btn:disabled {
+  opacity: 0.25;
+  border-color: #162232;
+  color: #475569;
+}
+
+body.dark-mode .pagination-info {
+  color: #7e91a6;
 }
 
 /* 영상 시청 화면 상단 네비 / 뒤로가기 */

@@ -863,6 +863,47 @@ function Dashboard({ onLogout, view }) {
     });
   }, [filterDays, videos, searchQuery]);
 
+  // 메인화면 영상 목록 페이지네이션 (6개 초과 시 페이지 분할)
+  const VIDEOS_PER_PAGE = 6;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / VIDEOS_PER_PAGE));
+
+  // 필터 조건(기간, 검색어) 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterDays, searchQuery]);
+
+  // 영상 삭제 등으로 인해 현재 페이지가 전체 페이지 수보다 커지면 조정
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedVideos = useMemo(() => {
+    const startIndex = (currentPage - 1) * VIDEOS_PER_PAGE;
+    return filteredVideos.slice(startIndex, startIndex + VIDEOS_PER_PAGE);
+  }, [filteredVideos, currentPage]);
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const getPageNumbers = () => {
+    const maxButtons = 5;
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   const videosByDate = useMemo(() => {
     return getVideosByDateApi(videos);
@@ -1513,7 +1554,7 @@ function Dashboard({ onLogout, view }) {
             {filteredVideos.length === 0 ? (
               <div className="empty-state">선택한 기간에 해당하는 영상이 없습니다.</div>
             ) : (
-              filteredVideos.map((video) => {
+              paginatedVideos.map((video) => {
                 const isSelected = selectedForDelete.includes(video.id);
                 return (
                 <div
@@ -1548,6 +1589,61 @@ function Dashboard({ onLogout, view }) {
               })
             )}
           </div>
+
+          {/* 페이지네이션 (영상 개수가 6개를 초과할 때 노출) */}
+          {filteredVideos.length > VIDEOS_PER_PAGE && (
+            <div className="pagination-bar">
+              <button
+                className="pagination-btn pagination-nav"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                title="첫 페이지"
+              >
+                «
+              </button>
+              <button
+                className="pagination-btn pagination-nav"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                title="이전 페이지"
+              >
+                ‹
+              </button>
+
+              <div className="pagination-pages">
+                {getPageNumbers().map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    className={`pagination-btn pagination-num ${currentPage === pageNum ? "active" : ""}`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                className="pagination-btn pagination-nav"
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                title="다음 페이지"
+              >
+                ›
+              </button>
+              <button
+                className="pagination-btn pagination-nav"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                title="마지막 페이지"
+              >
+                »
+              </button>
+
+              <span className="pagination-info">
+                {currentPage} / {totalPages} 페이지 (총 {filteredVideos.length}개)
+              </span>
+            </div>
+          )}
         </main>
       ) : (
         <main className={`watch-view ${isTheaterMode ? "theater-view" : ""}`}>
